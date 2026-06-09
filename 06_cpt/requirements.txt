@@ -1,0 +1,15 @@
+# CPT 중형 모델 학습 의존성
+# 담당자: 김승환
+
+torch>=2.1.0
+transformers>=4.40.0
+datasets>=2.18.0
+accelerate>=0.29.0
+pyyaml>=6.0
+
+# 토큰화 가속
+sentencepiece>=0.1.99
+protobuf>=4.25.0
+
+# 모니터링 (loss 곡선/메트릭 시각화)
+tensorboard>=2.15.0
