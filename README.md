@@ -88,14 +88,14 @@ Epoch: 0 | Step: 0 | Loss: 11.0625
 Epoch: 0 | Step: 5 | Loss: 9.4375
 Epoch: 1 | Step: 0 | Loss: 9.4375
 Epoch: 1 | Step: 5 | Loss: 8.7500
-🚀 학습 완료 및 'output/checkpoints'에 체크포인트 저장 성공
+학습 완료 및 'output/checkpoints'에 체크포인트 저장 성공
 ```
 * **Step의 의미**: 모델이 데이터를 먹고 가중치를 실제 1회 업데이트한 주기입니다. 
 * **자동 계산 공식**: 개발자가 지정한 `전체 데이터 크기 ÷ micro_batch_size ÷ gradient_accumulation_steps` 수식에 따라 컴퓨터가 실행 환경의 가용 스텝 총량을 자동 계측하여 실행합니다.
 
 ---
 
-## 💾 체크포인트 복원 및 병합 (`zero_to_fp32.py`)
+## 체크포인트 복원 및 병합 (`zero_to_fp32.py`)
 ZeRO-3 옵티마이저 특성상 학습 결과물은 모든 가용 GPU 자원에 조각조각 파편화되어 분산 저장됩니다. 
 
 학습이 정상 종료되면 `output/checkpoints/final_run/` 경로에 DeepSpeed 엔진이 **`zero_to_fp32.py`** 복원 스크립트를 자동 복사해 둡니다. 일반 PyTorch나 HuggingFace 추론 코드에서 단일 파일로 로드하고 싶다면 아래 명령어로 합체 가공할 수 있습니다.
