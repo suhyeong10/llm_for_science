@@ -1,19 +1,19 @@
-# 🚀 DeepSpeed 수동 제어 분산 사전학습 (Nemotron-120B & LLM)
+# 🚀 DeepSpeed 분산 사전학습 (Nemotron-120B & LLM)
 
 본 저장소는 DeepSpeed ZeRO-3 가속 엔진을 기반으로 LLM 도메인 사전학습(CPT) 템플릿 프로젝트입니다.
 
 ---
 
-## 📂 프로젝트 폴더 구조
+## 프로젝트 폴더 구조
 프로젝트 루트(`cpt/`)를 기준으로 깃 추적 및 학습 통제가 이루어집니다.
 ```text
 cpt/ (.git 레포지토리 위치)
 ├── config/
-│   └── ds_config.json      # DeepSpeed 하드웨어 및 메모리 제어 허브
+│   └── ds_config.json      # DeepSpeed 하드웨어 및 메모리 제어 정보
 ├── data/
-│   └── cpt_sample.txt      # 도메인 코퍼스 원천 데이터 (금융/법률/의학/IT 등)
+│   └── cpt_sample.txt      # 도메인 코퍼스 원천 데이터 
 ├── src/
-│   └── train.py            # CLI 아규먼트 기반 분산 학습 메인 스크립트
+│   └── train.py            # CLI 기반 분산 학습 메인 스크립트
 ├── output/
 │   └── checkpoints/        # ZeRO-3 쪼개진 체크포인트 및 변환 스크립트 자동 저장
 ├── dataset.py              # 슬라이싱 및 자동 패딩 지원 토큰화 데이터셋
@@ -24,25 +24,23 @@ cpt/ (.git 레포지토리 위치)
 
 ---
 
-## 🛠️ 핵심 자원 통제 메커니즘 (3대 가이드라인)
-
-개발자는 코드를 일절 수정하지 않고 아래 **3가지 포인트**만 조작하여 인프라 사양에 맞게 메모리 부족(OOM) 현상을 제어합니다.
+## 핵심 자원 통제 메커니즘 (3대 가이드라인)
 
 ### 1. `run.sh` (GPU 장치 수동 격리 및 할당)
-* `export CUDA_VISIBLE_DEVICES`: 특정 시스템 GPU 번호를 콕 집어 격리합니다.
-* `--num_gpus`: 할당된 격리 환경 내에서 활성화할 실제 GPU 연산 프로세스 개수를 정의합니다.
+* `export CUDA_VISIBLE_DEVICES`: 특정 시스템 GPU 번호
+* `--num_gpus`: 할당된 격리 환경 내에서 활성화할 실제 GPU 연산 프로세스 개수를 정의
 
 ### 2. `config/ds_config.json` (메모리 버퍼 및 연산 포맷)
-* `train_micro_batch_size_per_gpu`: GPU 장치당 1스텝에 처리할 문장 개수입니다. OOM 방어의 최전선 레버입니다.
-* `gradient_accumulation_steps`: 오답노트를 모으는 누적 단위입니다. 이를 늘리면 배치 사이즈 감소로 인한 학습 불안정을 방지합니다.
-* `offload_param` / `offload_optimizer`: 호스트 서버 RAM(CPU) 자원을 빌려 쓸지 여부를 설정합니다.
+* `train_micro_batch_size_per_gpu`: GPU 장치당 1스텝에 처리할 문장 개수
+* `gradient_accumulation_steps`: 오답노트를 모으는 누적 단위로, 이를 늘리면 배치 사이즈 감소로 인한 학습 불안정을 방지
+* `offload_param` / `offload_optimizer`: 호스트 서버 RAM(CPU) 자원을 빌려 쓸지 여부를 설정
 
 ### 3. `src/train.py` (하이퍼파라미터 일원화)
-* `--model_name_or_path`: 초소형 테스트용 `gpt2` 껍데기부터 실제 초거대 모델 경로까지 명령어 기반 매핑을 지원합니다.
+* `--model_name_or_path`: 초소형 테스트용 `gpt2` 껍데기부터 실제 초거대 모델 경로까지 명령어 기반 매핑을 지원
 
 ---
 
-## 🏃‍♂️ 인프라 규모별 실행 시나리오 예시
+## 인프라 규모별 실행 시나리오 예시
 
 ### 시나리오 A: V100 1대 환경 (현재 로컬 인프라 세팅)
 * **상황**: GPU 메모리가 작고(16G/32G), 최신 연산 규격인 `bf16`을 하드웨어적으로 지원하지 못하는 환경입니다.
@@ -75,7 +73,7 @@ deepspeed --num_gpus=8 src/train.py \
 
 ---
 
-## 📈 학습 로그 및 연산 매커니즘 이해
+## 학습 로그 및 연산 매커니즘 이해
 본 가속 구조는 전체 클러스터에서 진짜 대장 GPU(`Rank 0`) 딱 1대만 터미널 출력을 담당하도록 설계되어 로그 도배를 차단합니다.
 
 ### 실질 작동 예시 로그
@@ -92,7 +90,7 @@ Epoch: 1 | Step: 0 | Loss: 9.4375
 Epoch: 1 | Step: 5 | Loss: 8.7500
 🚀 학습 완료 및 'output/checkpoints'에 체크포인트 저장 성공
 ```
-* **Step의 의미**: 모델이 데이터를 먹고 가중치를 실제 1회 업데이트(공부)한 물리적인 주기입니다. 
+* **Step의 의미**: 모델이 데이터를 먹고 가중치를 실제 1회 업데이트한 주기입니다. 
 * **자동 계산 공식**: 개발자가 지정한 `전체 데이터 크기 ÷ micro_batch_size ÷ gradient_accumulation_steps` 수식에 따라 컴퓨터가 실행 환경의 가용 스텝 총량을 자동 계측하여 실행합니다.
 
 ---
