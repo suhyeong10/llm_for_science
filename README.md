@@ -1,73 +1,125 @@
-# pdf-parser-only
+# 🚀 DeepSpeed 분산 사전학습 (Nemotron-120B & LLM)
 
-저장된 학술 PDF를 Markdown 또는 텍스트로 변환하는 파서 모듈만 분리한 브랜치입니다.
-크롤러, 중복 제거, 평가, 운영 메모 문서는 제외했습니다.
+본 저장소는 DeepSpeed ZeRO-3 가속 엔진을 기반으로 LLM 도메인 사전학습(CPT) 템플릿 프로젝트입니다.
 
-## 포함 파일
+---
 
-- `batch_parse_pdfs.py`: 대량 PDF 배치 파싱, 체크포인트, 크래시 복구
-- `pdf_parser.py`: 파서 함수 묶음과 비교 유틸리티
-- `latex_cleaner.py`: PDF/LaTeX 정제 함수
-- `config.py`: 경로 및 공용 설정
-- `utils.py`: 로깅, parquet I/O, 언어 감지 등 공용 유틸리티
-- `schema.py`: parquet 스키마 정의
-- `docs/PDF_PARSING_GUIDE.md`: 파서 선택 및 교체 가이드
+## 프로젝트 폴더 구조
+프로젝트 루트(`cpt/`)를 기준으로 깃 추적 및 학습 통제가 이루어집니다.
+```text
+cpt/ (.git 레포지토리 위치)
+├── config/
+│   └── ds_config.json      # DeepSpeed 하드웨어 및 메모리 제어 정보
+├── data/
+│   └── cpt_sample.txt      # 도메인 코퍼스 원천 데이터 
+├── src/
+│   └── train.py            # CLI 기반 분산 학습 메인 스크립트
+├── output/
+│   └── checkpoints/        # ZeRO-3 쪼개진 체크포인트 및 변환 스크립트 자동 저장
+├── dataset.py              # 슬라이싱 및 자동 패딩 지원 토큰화 데이터셋
+├── .gitignore              # 대용량 가중치 파편 업로드 차단막
+├── run.sh                  # GPU 자원 격리 및 가용 개수 제어 스크립트
+└── README.md
+```
 
-## 설치
+---
+
+## 핵심 자원 통제 메커니즘 (3대 가이드라인)
+
+### 1. `run.sh` (GPU 장치 수동 격리 및 할당)
+* `export CUDA_VISIBLE_DEVICES`: 특정 시스템 GPU 번호
+* `--num_gpus`: 할당된 격리 환경 내에서 활성화할 실제 GPU 연산 프로세스 개수를 정의
+
+### 2. `config/ds_config.json` (메모리 버퍼 및 연산 포맷)
+* `train_micro_batch_size_per_gpu`: GPU 장치당 1스텝에 처리할 문장 개수
+* `gradient_accumulation_steps`: 오답노트를 모으는 누적 단위로, 이를 늘리면 배치 사이즈 감소로 인한 학습 불안정을 방지
+* `offload_param` / `offload_optimizer`: 호스트 서버 RAM(CPU) 자원을 빌려 쓸지 여부를 설정
+
+### 3. `src/train.py` (하이퍼파라미터 일원화)
+* `--model_name_or_path`: 초소형 테스트용 `gpt2` 껍데기부터 실제 초거대 모델 경로까지 명령어 기반 매핑을 지원
+
+---
+
+## 인프라 규모별 실행 시나리오 예시
+
+### 시나리오 A: V100 1대 환경 (현재 로컬 인프라 세팅)
+* **상황**: GPU 메모리가 작고(16G/32G), 최신 연산 규격인 `bf16`을 하드웨어적으로 지원하지 못하는 환경입니다.
+* **조작 레버**: `ds_config.json`에서 `"fp16": {"enabled": true}`, `"bf16": {"enabled": false}`로 수동 변경합니다. `offload_param`과 `offload_optimizer`를 둘 다 `"cpu"`로 켭니다.
+* **실행 스크립트 (`run.sh`)**:
+```bash
+#!/bin/bash
+export CUDA_VISIBLE_DEVICES=3 # 3번 GPU 딱 1장만 격리 지정
+export MKL_SERVICE_FORCE_INTEL=1
+
+deepspeed --num_gpus=1 src/train.py \
+    --ds_config config/ds_config.json \
+    --model_name_or_path gpt2 \
+    --epochs 2 \
+    --output_dir output/checkpoints
+```
+
+### 시나리오 B: A100 / H100 8장 클러스터 환경 (Nemotron-120B 실구동)
+* **상황**: 가용 GPU 메모리가 거대하고(총 640GB), 초고속 분산 연산이 필요한 환경입니다.
+* **조작 레버**: `ds_config.json`에서 가중치 오프로드를 꺼서 속도를 확보하고(`"offload_param": {"device": "none"}`), 고속 가속 포맷인 `"bf16": {"enabled": true}`를 켭니다. 마이크로 배치를 `2`~`4` 수준으로 상향합니다.
+* **실행 스크립트 변형 예시**:
+```bash
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 # 8장 전체 개방
+deepspeed --num_gpus=8 src/train.py \
+    --ds_config config/ds_config.json \
+    --model_name_or_path nvidia/Nemotron-3-120B \
+    --epochs 5 \
+    --output_dir output/nemotron_120b_checkpoints
+```
+
+---
+
+## 학습 로그 및 연산 매커니즘 이해
+본 가속 구조는 전체 클러스터에서 진짜 대장 GPU(`Rank 0`) 딱 1대만 터미널 출력을 담당하도록 설계되어 로그 도배를 차단합니다.
+
+### 실질 작동 예시 로그
+```text
+==================================================
+[활성화된 총 GPU 개수]: 1
+[GPU당 할당된 micro 배치 크기]: 1
+[그라디언트 누적 스텝]: 4
+[최종 실질 배치 사이즈 (Total Batch Size)]: 4
+==================================================
+Epoch: 0 | Step: 0 | Loss: 11.0625
+Epoch: 0 | Step: 5 | Loss: 9.4375
+Epoch: 1 | Step: 0 | Loss: 9.4375
+Epoch: 1 | Step: 5 | Loss: 8.7500
+학습 완료 및 'output/checkpoints'에 체크포인트 저장 성공
+```
+* **Step의 의미**: 모델이 데이터를 먹고 가중치를 실제 1회 업데이트한 주기입니다. 
+* **자동 계산 공식**: 개발자가 지정한 `전체 데이터 크기 ÷ micro_batch_size ÷ gradient_accumulation_steps` 수식에 따라 컴퓨터가 실행 환경의 가용 스텝 총량을 자동 계측하여 실행합니다.
+
+---
+
+## 체크포인트 복원 및 병합 (`zero_to_fp32.py`)
+ZeRO-3 옵티마이저 특성상 학습 결과물은 모든 가용 GPU 자원에 조각조각 파편화되어 분산 저장됩니다. 
+
+학습이 정상 종료되면 `output/checkpoints/final_run/` 경로에 DeepSpeed 엔진이 **`zero_to_fp32.py`** 복원 스크립트를 자동 복사해 둡니다. 일반 PyTorch나 HuggingFace 추론 코드에서 단일 파일로 로드하고 싶다면 아래 명령어로 합체 가공할 수 있습니다.
 
 ```bash
-pip install -r requirements.txt
-pip install pymupdf4llm
+cd output/checkpoints/final_run
+python zero_to_fp32.py . pytorch_model.bin
 ```
 
-선택 설치:
+---
 
-```bash
-pip install docling
-pip install mineru
-```
-
-## 사용법
-
-배치 파싱:
-
-```bash
-python batch_parse_pdfs.py --backend pymupdf4llm --workers 4 --chunk 500
-```
-
-특정 source type 결과 교체:
-
-```bash
-python batch_parse_pdfs.py \
-  --backend docling \
-  --replace-source arxiv_pdf_pymupdf4llm \
-  --workers 4
-```
-
-파이썬에서 직접 사용:
-
-```python
-from pdf_parser import parse_pdfs_batch
-
-stats = parse_pdfs_batch(backend="docling", workers=2)
-print(stats)
-```
-
-## 데이터 경로
-
-기본 경로는 저장소 루트 기준으로 아래를 사용합니다.
+## 데이터 샘플 (`data/cpt_sample.txt`)
+학습 환경에 주입되는 원천 데이터의 규격과 줄바꿈 상태를 보존한 실제 파일의 전체 원문 텍스트 예시입니다.
 
 ```text
-data/arxiv/**/*.parquet
-data/arxiv/pdfs/*.pdf
-data/checkpoints/
-logs/
+[금융/경제 도메인 데이터]
+중앙은행의 통화정책은 거시경제의 안정성을 유지하고 물가상승률을 통제하기 위한 핵심적인 정책 수단이다. 기준금리 인상은 시중의 유동성을 회수하여 과열된 자산 시장을 진정시키고 소비를 억제하는 효과를 가져오지만, 동시에 기업의 이자 부담을 가중시켜 투자를 위축시킬 수 있다. 반면 양적완화 정책은 국채 매입 등을 통해 시중에 직접적으로 자금을 공급함으로써 경기 침체기에 소비와 투자를 활성화하는 데 기여한다. 최근 디지털 자산과 중앙은행 디지털화폐(CBDC)의 도입 논의가 본격화되면서, 전통적인 통화 유통 속도와 통화 승수의 개념은 새로운 금융 기술 패러다임에 맞춰 재정의되고 있으며 이는 향후 통화 신용 정책의 파급 경로에 심각한 변화를 야기할 것으로 전망된다.
+
+[법률 도메인 데이터]
+대한민국 민법 제390조는 채무자가 채무의 내용에 좇은 이행을 하지 아니한 때에는 채권자는 손해배상을 청구할 수 있다고 규정하여 채무불이행으로 인한 손해배상책임의 일반 원칙을 천명하고 있다. 다만, 채무자의 고의나 과실 없이 이행할 수 없게 된 때에는 그러하지 아니하다는 면책 조항을 두어 책임주의 원칙을 고수한다. 불법행위로 인한 손해배상책임을 규정한 제750조와의 가장 큰 차이점은 입증책임의 소재에 있다. 채무불이행 책임에서는 채무자가 자신에게 과실이 없음을 입증해야 하는 반면, 불법행위 책임에서는 피해자인 채권자가 가해자의 고의 또는 과실을 직접 입증해야 하므로 소송 실무상 구제 수단을 선택할 때 신중한 법리 검토가 요구된다.
+
+[의학/바이오 도메인 데이터]
+차세대 염기서열 분석법(NGS)의 발전은 환자 개인의 유전체 정보를 기반으로 하는 정밀 의료 및 맞춤형 암 치료의 시대를 개막했다. 종양 세포의 DNA 추출을 통해 특정 변이(예: EGFR, KRAS, BRAF 등)를 표적으로 하는 약물을 선별함으로써 기존 화학항암제가 가졌던 부작용을 최소화하고 치료 반응률을 획기적으로 끌어올릴 수 있게 되었다. 최근에는 면역관문억제제(Immune Checkpoint Inhibitor)의 도입으로 환자 본인의 면역 체계를 활성화하여 암세포를 공격하도록 유도하는 3세대 항암 치료가 주목받고 있다. 그러나 종양 이질성(Tumor Heterogeneity)과 치료 과정에서 발생하는 획득 내성 문제는 여전히 극복해야 할 과제이며, 이를 해결하기 위해 복합 가이드 RNA를 활용한 크리스퍼 유전자 가위(CRISPR-Cas9) 기반의 유전자 교정 연구가 활발히 진행 중이다.
+
+[IT/인공지능 기술 도메인 데이터]
+트랜스포머(Transformer) 아키텍처의 핵심인 어텐션(Attention) 메커니즘은 입력 시퀀스 내의 모든 토큰 간의 상관관계를 병렬로 계산함으로써 기존 순환신경망(RNN)이 가졌던 장기 의존성(Long-Term Dependency) 문제를 근본적으로 해결하였다. self-attention 연산은 문맥 내에서 각 단어가 가지는 의미적 가중치를 동적으로 할당하여 멀리 떨어진 단어 사이의 관계도 정확하게 포착한다. 거대 언어 모델(LLM)의 크기가 수천억 개의 파라미터 규모로 확장됨에 따라 단일 컴퓨팅 노드의 메모리 한계를 극복하기 위해 DeepSpeed와 같은 분산 학습 프레임워크가 고안되었으며, 이는 모델 병렬화 및 옵티마이저 상태 분산 기법을 통해 초대형 모델의 연산 효율성을 극배화하고 있다.
 ```
-
-필요한 상세 비교와 백엔드 설명은 [docs/PDF_PARSING_GUIDE.md](docs/PDF_PARSING_GUIDE.md)를 참고하면 됩니다.
-
-## 파서 비교 이미지
-
-직접 비교용으로 만든 이미지입니다.
-
-![Parser comparison](docs/IMG_7258.PNG)
