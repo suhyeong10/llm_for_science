@@ -4,3 +4,17 @@ reports/
 __pycache__/
 *.pyc
 .env
+.venv/
+.DS_Store
+.pytest_cache/
+.mypy_cache/
+*.egg-info/
+training/runs/
+training/checkpoints/
+outputs/
+training/tests/capacity_loop/
+training/tests/out_smoke/
+training/full_cpt/tests/capacity_loop/
+training/full_cpt/tests/out_smoke/
+training/full_cpt/tests/capacity_loop/
+training/full_cpt/tests/out_smoke/

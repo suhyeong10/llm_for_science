@@ -9,10 +9,10 @@
 
 실행:
     # 기본 (pymupdf4llm으로 신규 파싱)
-    python batch_parse_pdfs.py --workers 4
+    python -m pipeline.batch_parse_pdfs --workers 4
 
     # 새 파서로 전체 교체
-    python batch_parse_pdfs.py --backend docling --replace-source arxiv_pdf_pymupdf4llm --workers 4
+    python -m pipeline.batch_parse_pdfs --backend docling --replace-source arxiv_pdf_pymupdf4llm --workers 4
 """
 from __future__ import annotations
 import argparse, glob, logging, os, time, json
@@ -24,7 +24,7 @@ import pandas as pd
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
 log = logging.getLogger(__name__)
 
-BASE_DIR  = Path(__file__).parent
+BASE_DIR  = Path(__file__).resolve().parents[1]
 PDF_DIR   = BASE_DIR / "data" / "arxiv" / "pdfs"
 DATA_DIR  = BASE_DIR / "data"
 CKPT_DIR  = BASE_DIR / "data" / "checkpoints"

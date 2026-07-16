@@ -11,7 +11,7 @@
 pip install pymupdf4llm
 
 # 2. 파싱 실행 (PDF 폴더 지정)
-python3 batch_parse_pdfs.py --pdf-dir /path/to/pdfs --workers 4
+python -m pipeline.batch_parse_pdfs --pdf-dir /path/to/pdfs --workers 4
 
 # 3. 결과 확인
 python main.py index
@@ -26,7 +26,7 @@ python main.py query "SELECT full_text_source_type, COUNT(*) FROM papers GROUP B
 
 ```bash
 pip install pymupdf4llm
-python3 batch_parse_pdfs.py --backend pymupdf4llm --workers 4 --chunk 500
+python -m pipeline.batch_parse_pdfs --backend pymupdf4llm --workers 4 --chunk 500
 ```
 
 - **속도**: 0.45초/페이지 (CPU)
@@ -39,7 +39,7 @@ python3 batch_parse_pdfs.py --backend pymupdf4llm --workers 4 --chunk 500
 
 ```bash
 pip install docling
-python3 batch_parse_pdfs.py --backend docling --workers 2 --chunk 100
+python -m pipeline.batch_parse_pdfs --backend docling --workers 2 --chunk 100
 ```
 
 - **속도**: 14초/페이지 (수식 포함 시)
@@ -56,7 +56,7 @@ conda create -n mineru python=3.12 -y && conda activate mineru
 pip install "magic-pdf[full]"
 # 모델 다운로드 필요 (HuggingFace: opendatalab/PDF-Extract-Kit-1.0)
 
-python3 batch_parse_pdfs.py --backend mineru --workers 4 --chunk 100
+python -m pipeline.batch_parse_pdfs --backend mineru --workers 4 --chunk 100
 ```
 
 - **속도**: 0.21초/페이지 (GPU) / 23초/페이지 (CPU)
@@ -174,27 +174,27 @@ $$S _ { n l \lambda , n ^ { \prime } \lambda ^ { \prime } } \big ( p , t \big ) 
 
 ```bash
 # data/arxiv/pdfs/ 의 PDF를 파싱하여 parquet에 저장
-python3 batch_parse_pdfs.py --backend pymupdf4llm --workers 4 --chunk 500
+python -m pipeline.batch_parse_pdfs --backend pymupdf4llm --workers 4 --chunk 500
 ```
 
 ### 커스텀 PDF 폴더 지정
 
 ```bash
 # 임의 폴더의 PDF 파싱
-python3 batch_parse_pdfs.py --pdf-dir /path/to/my/pdfs --workers 4
+python -m pipeline.batch_parse_pdfs --pdf-dir /path/to/my/pdfs --workers 4
 ```
 
 ### 파서 교체 (기존 결과 덮어쓰기)
 
 ```bash
 # pymupdf4llm 결과를 MinerU로 교체
-python3 batch_parse_pdfs.py \
+python -m pipeline.batch_parse_pdfs \
   --backend mineru \
   --replace-source arxiv_pdf_pymupdf4llm \
   --workers 4
 
 # pymupdf4llm 결과를 Docling으로 교체
-python3 batch_parse_pdfs.py \
+python -m pipeline.batch_parse_pdfs \
   --backend docling \
   --replace-source arxiv_pdf_pymupdf4llm \
   --workers 2
@@ -203,7 +203,7 @@ python3 batch_parse_pdfs.py \
 ### Dry Run (실제 파싱 없이 대상 확인)
 
 ```bash
-python3 batch_parse_pdfs.py --dry-run
+python -m pipeline.batch_parse_pdfs --dry-run
 # 출력: 파서: pymupdf4llm | 전체: 48,652 | 완료: 48,630 | 남은: 22
 ```
 
@@ -212,7 +212,7 @@ python3 batch_parse_pdfs.py --dry-run
 ## CLI 옵션
 
 ```
-python3 batch_parse_pdfs.py [OPTIONS]
+python -m pipeline.batch_parse_pdfs [OPTIONS]
 
 옵션:
   --backend {pymupdf4llm,docling,mineru}   파서 선택 (기본: pymupdf4llm)
@@ -233,7 +233,7 @@ python3 batch_parse_pdfs.py [OPTIONS]
 
 ```bash
 # 중간에 Ctrl+C로 종료해도 OK
-python3 batch_parse_pdfs.py --workers 4
+python -m pipeline.batch_parse_pdfs --workers 4
 # → "파서: pymupdf4llm | 전체: 48,652 | 완료: 30,000 | 남은: 18,652"
 ```
 
@@ -309,7 +309,7 @@ Raw PDF(`data/arxiv/pdfs/`)를 영구 보관하므로, 더 좋은 파서가 나�
 
 ```bash
 # 1줄로 전체 교체
-python3 batch_parse_pdfs.py --backend mineru --replace-source arxiv_pdf_pymupdf4llm --workers 4
+python -m pipeline.batch_parse_pdfs --backend mineru --replace-source arxiv_pdf_pymupdf4llm --workers 4
 ```
 
 교체 후 dedup 재실행 권장:

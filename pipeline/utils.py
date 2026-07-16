@@ -239,7 +239,7 @@ def save_records_to_parquet(
     resume 시 기존 파일 번호에 이어서 작성하여 덮어쓰기 방지.
     """
     import pyarrow.parquet as pq
-    from schema import records_to_table
+    from .schema import records_to_table
 
     if not records:
         return
@@ -273,7 +273,7 @@ def save_df_to_parquet(df, data_dir: str, source: str, batch_id: str):
     """DataFrame을 year별 파티셔닝된 parquet으로 저장 (기존 파일 교체)."""
     import pyarrow as pa
     import pyarrow.parquet as pq
-    from schema import PARQUET_SCHEMA
+    from .schema import PARQUET_SCHEMA
 
     for year, group in df.groupby("year"):
         year_dir = os.path.join(data_dir, source, f"year={year}")

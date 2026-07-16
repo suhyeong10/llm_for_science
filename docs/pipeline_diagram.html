@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>과학 논문 수집 파이프라인</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'Pretendard', sans-serif;
+    background: #f8f9fa;
+    padding: 40px 20px;
+    color: #1a1a2e;
+  }
+  .container { max-width: 1000px; margin: 0 auto; }
+
+  h1 {
+    text-align: center;
+    font-size: 1.6rem;
+    margin-bottom: 8px;
+    color: #1a1a2e;
+  }
+  .subtitle {
+    text-align: center;
+    color: #666;
+    font-size: 0.9rem;
+    margin-bottom: 40px;
+  }
+
+  /* Pipeline */
+  .pipeline { display: flex; flex-direction: column; gap: 0; }
+
+  .stage {
+    display: flex;
+    align-items: stretch;
+    position: relative;
+  }
+
+  .stage-num {
+    width: 56px;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .stage-num .circle {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.95rem;
+    color: #fff;
+    z-index: 2;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .stage-num .line {
+    width: 3px;
+    flex: 1;
+    z-index: 1;
+  }
+
+  .stage-card {
+    flex: 1;
+    background: #fff;
+    border-radius: 12px;
+    padding: 18px 22px;
+    margin: 6px 0 6px 12px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border-left: 4px solid;
+    position: relative;
+  }
+  .stage-card h3 { font-size: 1rem; margin-bottom: 6px; }
+  .stage-card .desc { font-size: 0.85rem; color: #555; line-height: 1.5; }
+  .stage-card .stat {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  /* Color themes */
+  .c1 .circle, .c1 .line { background: #4361ee; }
+  .c1 .stage-card { border-color: #4361ee; }
+  .c1 .stat { background: #eef0ff; color: #4361ee; }
+
+  .c2 .circle, .c2 .line { background: #7209b7; }
+  .c2 .stage-card { border-color: #7209b7; }
+  .c2 .stat { background: #f3e8ff; color: #7209b7; }
+
+  .c3 .circle, .c3 .line { background: #f72585; }
+  .c3 .stage-card { border-color: #f72585; }
+  .c3 .stat { background: #ffeaf3; color: #f72585; }
+
+  .c4 .circle, .c4 .line { background: #4cc9f0; }
+  .c4 .stage-card { border-color: #4cc9f0; }
+  .c4 .stat { background: #e8f8fd; color: #0891b2; }
+
+  .c5 .circle, .c5 .line { background: #06d6a0; }
+  .c5 .stage-card { border-color: #06d6a0; }
+  .c5 .stat { background: #e6faf4; color: #059669; }
+
+  .c6 .circle, .c6 .line { background: #fca311; }
+  .c6 .stage-card { border-color: #fca311; }
+  .c6 .stat { background: #fff7e6; color: #b45309; }
+
+  /* Branch */
+  .branch-wrap {
+    margin: 6px 0 6px 68px;
+    display: flex;
+    gap: 12px;
+  }
+  .branch-card {
+    flex: 1;
+    background: #fff;
+    border-radius: 10px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    border-top: 3px solid;
+    position: relative;
+  }
+  .branch-card h4 { font-size: 0.88rem; margin-bottom: 4px; }
+  .branch-card .desc { font-size: 0.8rem; color: #555; line-height: 1.4; }
+  .branch-card .stat {
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 16px;
+  }
+  .branch-card.latex { border-color: #7209b7; }
+  .branch-card.latex .stat { background: #f3e8ff; color: #7209b7; }
+  .branch-card.pdf { border-color: #f72585; }
+  .branch-card.pdf .stat { background: #ffeaf3; color: #f72585; }
+
+  /* Arrow connector between branches */
+  .branch-connector {
+    margin: 0 0 0 68px;
+    display: flex;
+    gap: 12px;
+    height: 20px;
+  }
+  .branch-connector .arrow-down {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+  }
+  .branch-connector .arrow-down::after {
+    content: '';
+    width: 3px;
+    height: 100%;
+    display: block;
+  }
+  .branch-connector .arrow-down.purple::after { background: #7209b7; }
+  .branch-connector .arrow-down.pink::after { background: #f72585; }
+
+  /* GPU callout */
+  .gpu-note {
+    margin: 12px 0 12px 68px;
+    background: linear-gradient(135deg, #ffecd2, #fcb69f33);
+    border: 1px solid #f0c27f;
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 0.82rem;
+    color: #7c4a1e;
+    line-height: 1.5;
+  }
+  .gpu-note strong { color: #92400e; }
+
+  /* Legend */
+  .legend {
+    margin-top: 32px;
+    padding: 16px 20px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    font-size: 0.82rem;
+    color: #555;
+    line-height: 1.6;
+  }
+  .legend h4 { color: #1a1a2e; margin-bottom: 6px; font-size: 0.9rem; }
+  .legend code {
+    background: #f1f3f5;
+    padding: 1px 6px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    color: #e64980;
+  }
+
+  /* Status badges */
+  .done { background: #d3f9d8 !important; color: #2b8a3e !important; }
+  .progress { background: #fff3bf !important; color: #e67700 !important; }
+  .waiting { background: #f1f3f5 !important; color: #868e96 !important; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Science Paper Collection Pipeline</h1>
+  <p class="subtitle">arXiv 9 categories &middot; 2000~2025 &middot; 254,376 papers</p>
+
+  <div class="pipeline">
+
+    <!-- Stage 1: Metadata -->
+    <div class="stage c1">
+      <div class="stage-num">
+        <div class="circle">1</div>
+        <div class="line"></div>
+      </div>
+      <div class="stage-card">
+        <h3>Metadata Collection</h3>
+        <div class="desc">
+          arXiv API &rarr; title, abstract, authors, categories, arxiv_id<br>
+          9 categories &times; 26 years, batch 100건/req, 연도별 분할 크롤링
+        </div>
+        <span class="stat done">254,376건 완료</span>
+      </div>
+    </div>
+
+    <!-- Stage 2: Download (branch) -->
+    <div class="stage c2">
+      <div class="stage-num">
+        <div class="circle">2</div>
+        <div class="line"></div>
+      </div>
+      <div class="stage-card">
+        <h3>Source Download</h3>
+        <div class="desc">
+          e-print API로 LaTeX 소스 다운로드 시도 (8 workers, GlobalRateLimiter 1req/sec)<br>
+          실패 시 PDF fallback &rarr; <code>data/arxiv/pdfs/</code>에 영구 보관
+        </div>
+        <span class="stat done">216,547건 완료</span>
+      </div>
+    </div>
+
+    <!-- Branch cards -->
+    <div class="branch-connector">
+      <div class="arrow-down purple"></div>
+      <div class="arrow-down pink"></div>
+    </div>
+    <div class="branch-wrap">
+      <div class="branch-card latex">
+        <h4>LaTeX 성공 (66%)</h4>
+        <div class="desc">
+          LaTeX 원본 &rarr; <strong>③-a</strong> 즉시 클리닝<br>
+          Greek map 60+개, 수식 정리, Karpathy Loop 4회
+        </div>
+        <span class="stat done">167,895건 &middot; 잔존율 0.000%</span>
+      </div>
+      <div class="branch-card pdf">
+        <h4>PDF Fallback (34%)</h4>
+        <div class="desc">
+          Raw PDF 저장 &rarr; <strong>③-b</strong> 배치 파싱<br>
+          pymupdf4llm (CPU) &rarr; 향후 MinerU (GPU) 교체 가능
+        </div>
+        <span class="stat progress">~21K/48,652건 진행 중</span>
+      </div>
+    </div>
+
+    <!-- GPU Note -->
+    <div class="gpu-note">
+      <strong>PDF 파서 교체 전략:</strong> Raw PDF를 영구 보관하여 향후 GPU 파서(MinerU)로 재파싱 가능.<br>
+      <code>--replace-source arxiv_pdf_pymupdf4llm</code> 옵션으로 기존 결과를 일괄 교체.
+    </div>
+
+    <!-- Stage 4: Dedup -->
+    <div class="stage c5">
+      <div class="stage-num">
+        <div class="circle">3</div>
+        <div class="line"></div>
+      </div>
+      <div class="stage-card">
+        <h3>Dedup (중복 제거)</h3>
+        <div class="desc">
+          SHA-256 hash 매칭 + rapidfuzz 제목 유사도 (90%+)<br>
+          보존 우선순위: LaTeX &gt; MinerU &gt; Docling &gt; pymupdf4llm &gt; raw PDF
+        </div>
+        <span class="stat done">254,376 &rarr; 220,089건</span>
+      </div>
+    </div>
+
+    <!-- Stage 5: Index -->
+    <div class="stage c4">
+      <div class="stage-num">
+        <div class="circle">4</div>
+        <div class="line"></div>
+      </div>
+      <div class="stage-card">
+        <h3>DuckDB Indexing</h3>
+        <div class="desc">
+          Parquet 파일에 직접 SQL 쿼리 (zero-copy)<br>
+          <code>python main.py query "SELECT ... FROM papers"</code>
+        </div>
+        <span class="stat done">index.db 생성 완료</span>
+      </div>
+    </div>
+
+    <!-- Stage 6: Eval -->
+    <div class="stage c6">
+      <div class="stage-num">
+        <div class="circle">5</div>
+        <div class="line" style="background:transparent;"></div>
+      </div>
+      <div class="stage-card">
+        <h3>Quality Eval</h3>
+        <div class="desc">
+          8차원 품질 점수 (스키마, 본문확보, LaTeX품질, 메타정확성, 중복제거, 언어순도, 토큰분포, 해시유일성)<br>
+          Karpathy Loop: Build &rarr; Sample &rarr; Eval &rarr; Fix 반복
+        </div>
+        <span class="stat progress">79.4/100 &middot; PDF 파싱 후 재평가</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Legend -->
+  <div class="legend">
+    <h4>Docling + Formula Enrichment (참고)</h4>
+    <p>
+      <strong>Docling</strong>은 IBM이 오픈소스로 공개한 PDF 파서로, 기본 모드에서는 텍스트+테이블을 추출합니다 (3.1초/페이지).<br>
+      <strong>Formula enrichment</strong> 옵션을 켜면 PDF 속 수식 영역을 감지하여 LaTeX 코드로 변환합니다.<br><br>
+      실제 테스트 (42페이지 논문): 327개 수식을 LaTeX로 추출 성공. 하지만 <strong>14초/페이지</strong>로 속도가 급감하여,<br>
+      48,652건 전체에 적용 시 <strong>~56일</strong> 소요 (CPU 기준) &rarr; 현실적이지 않아 기각.<br><br>
+      <em>선택 근거:</em> LaTeX 논문 167,895건이 이미 수식을 포함하고 있으므로, PDF 48,652건은 pymupdf4llm으로 빠르게 파싱하고,<br>
+      수식이 중요한 경우 향후 GPU 서버에서 MinerU로 교체하는 전략을 채택.
+    </p>
+  </div>
+
+</div>
+</body>
+</html>

@@ -9,9 +9,9 @@ import pandas as pd
 import pyarrow as pa
 import pyarrow.parquet as pq
 
-import config
-from schema import PARQUET_SCHEMA
-from utils import detect_language, load_all_parquet, save_df_to_parquet, setup_logger
+from . import config
+from .schema import PARQUET_SCHEMA
+from .utils import detect_language, load_all_parquet, save_df_to_parquet, setup_logger
 
 logger = setup_logger("latex_cleaner", config.LOGS_DIR)
 

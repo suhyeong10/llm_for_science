@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime
+from pathlib import Path
 
 # --- arXiv ---
 ARXIV_CATEGORIES = [
@@ -43,10 +44,11 @@ S2_FIELDS = (
 )
 
 # --- 저장 ---
-DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-LOGS_DIR = os.path.join(os.path.dirname(__file__), "logs")
-REPORTS_DIR = os.path.join(os.path.dirname(__file__), "reports")
-KEYWORDS_DIR = os.path.join(os.path.dirname(__file__), "keywords")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = str(REPO_ROOT / "data")
+LOGS_DIR = str(REPO_ROOT / "logs")
+REPORTS_DIR = str(REPO_ROOT / "reports")
+KEYWORDS_DIR = str(REPO_ROOT / "keywords")
 PARQUET_ROWS_PER_FILE = 10_000  # 파일당 행 수 (메모리/파일 크기 균형)
 
 # --- 동시성 ---

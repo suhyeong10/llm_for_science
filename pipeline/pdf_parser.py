@@ -21,9 +21,9 @@ from pathlib import Path
 
 import pandas as pd
 
-import config
-from latex_cleaner import clean_pdf_text, count_tokens_approx
-from utils import detect_language, load_all_parquet, save_df_to_parquet, setup_logger
+from . import config
+from .latex_cleaner import clean_pdf_text, count_tokens_approx
+from .utils import detect_language, load_all_parquet, save_df_to_parquet, setup_logger
 
 logger = setup_logger("pdf_parser", config.LOGS_DIR)
 

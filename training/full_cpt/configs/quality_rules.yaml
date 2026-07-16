@@ -1,0 +1,63 @@
+version: "v1"
+
+document_filters:
+  require_english: true
+  english_confidence_min: 0.80
+  require_title_or_abstract: true
+  allowed_sources: ["s2orc", "s2ag", "crawled"]
+
+length_filters:
+  min_chars: 1000
+  min_words: 180
+  min_paragraphs: 4
+  max_chars: 250000
+
+year_filters:
+  enabled: true
+  min_year: 1970
+  max_year: 2026
+  missing_year_policy: "keep"  # keep | drop
+
+text_quality:
+  max_non_ascii_ratio: 0.25
+  max_repeated_line_ratio: 0.15
+  max_repeated_token_ratio: 0.22
+  max_symbol_ratio: 0.35
+  min_unique_token_ratio: 0.18
+  remove_broken_unicode: true
+
+section_cleaning:
+  drop_figure_captions: true
+  drop_table_captions: true
+  drop_references_section: true
+  drop_acknowledgements_section: false
+  drop_appendix_section: false
+  drop_equation_only_lines: true
+  drop_url_only_lines: false
+
+ocr_noise:
+  enabled: true
+  max_suspect_line_ratio: 0.20
+  suspect_line_regex:
+    - "^[^a-zA-Z0-9]{8,}$"
+    - "^(.)\\1{8,}$"
+
+deduplication:
+  exact_dedup: true
+  normalize_before_hash: true
+  near_dedup: true
+  method: "simhash"          # simhash | minhash
+  similarity_threshold: 0.92
+  compare_within_source_only: false
+
+metadata:
+  require_id: true
+  require_added_date: true
+  enforce_version_field: true
+  default_version: "internal_v1"
+
+output:
+  keep_filter_reason: true
+  keep_quality_scores: true
+  write_rejected_records: true
+  rejected_path: "data/processed/rejected/rejected_records.jsonl"
